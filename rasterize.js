@@ -320,7 +320,7 @@ function loadModels() {
                     latY = Math.sin(latAngle); // height at current latitude
                     for (var longAngle=0; longAngle<=2*Math.PI+angleIncr; longAngle+=angleIncr){ // for each long
                         ellipsoidVertices.push(latRadius*Math.sin(longAngle),latY,latRadius*Math.cos(longAngle));
-                        u = 1-(longAngle / (2*Math.PI));
+                        u = (longAngle / (2*Math.PI));
                         v = (Math.PI/2 + latAngle)/ Math.PI;
                         ellipsoidTextureCoords.push(u, v);  
                     }
@@ -394,7 +394,16 @@ function loadModels() {
             var triToAdd; // tri indices to add to the index array
             var maxCorner = vec3.fromValues(Number.MIN_VALUE,Number.MIN_VALUE,Number.MIN_VALUE); // bbox corner
             var minCorner = vec3.fromValues(Number.MAX_VALUE,Number.MAX_VALUE,Number.MAX_VALUE); // other corner
-        
+            
+            for(var i=0; i<numTriangleSets; i++) {
+                for(var j=0; j<numTriangleSets-1; j++) {
+                    if(inputTriangles[j].z < inputTriangles[j+1].z) {
+                        var temp = inputTriangles[j];
+                        inputTriangles[j] = inputTriangles[j+1];
+                        inputTriangles[j+1] = temp;
+                    }
+                }
+            }
             // process each triangle set to load webgl vertex and triangle buffers
             numTriangleSets = inputTriangles.length; // remember how many tri sets
             for (var whichSet=0; whichSet<numTriangleSets; whichSet++) { // for each tri set
@@ -465,6 +474,17 @@ function loadModels() {
                 var temp = vec3.create(); // an intermediate vec3
                 var minXYZ = vec3.create(), maxXYZ = vec3.create();  // min/max xyz from ellipsoid
                 numEllipsoids = inputEllipsoids.length; // remember how many ellipsoids
+
+                for(var i=0; i<numEllipsoids; i++) {
+                    for(var j=0; j<numEllipsoids-1; j++) {
+                        if(inputEllipsoids[j].z < inputEllipsoids[j+1].z) {
+                            var temp = inputEllipsoids[j];
+                            inputEllipsoids[j] = inputEllipsoids[j+1];
+                            inputEllipsoids[j+1] = temp;
+                        }
+                    }
+                }
+
                 for (var whichEllipsoid=0; whichEllipsoid<numEllipsoids; whichEllipsoid++) {
                     
                     // set up various stats and transforms for this ellipsoid
@@ -751,15 +771,7 @@ function renderModels() {
     mat4.multiply(pvMatrix,pvMatrix,pMatrix); // projection
     mat4.multiply(pvMatrix,pvMatrix,vMatrix); // projection * view
 
-    for(var i=0; i<numTriangleSets; i++) {
-        for(var j=0; j<numTriangleSets-1; j++) {
-            if(inputTriangles[j].material.alpha < inputTriangles[j+1].material.alpha) {
-                var temp = inputTriangles[j];
-                inputTriangles[j] = inputTriangles[j+1];
-                inputTriangles[j+1] = temp;
-            }
-        }
-    }
+    
     // render each triangle set
     var currSet; // the tri set and its material properties
     for (var whichTriSet=0; whichTriSet<numTriangleSets; whichTriSet++) {
@@ -798,12 +810,14 @@ function renderModels() {
             //opaque
             gl.disable(gl.BLEND);
             gl.depthMask(true);
+            //gl.enable(gl.DEPTH_TEST);
         }
         else {
             //transparency
             gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
             gl.enable(gl.BLEND);
             gl.depthMask(false);
+            //gl.disable(gl.DEPTH_TEST);
         }
         gl.uniform1f(alphaUniform, parseFloat(inputTriangles[whichTriSet].material.alpha));
 
@@ -813,16 +827,6 @@ function renderModels() {
         
     } // end for each triangle set
     
-    //sorting the sphere data as per alpha values
-    for(var i=0; i<numEllipsoids; i++) {
-        for(var j=0; j<numEllipsoids-1; j++) {
-            if(inputEllipsoids[j].alpha < inputEllipsoids[j+1].alpha) {
-                var temp = inputEllipsoids[j];
-                inputEllipsoids[j] = inputEllipsoids[j+1];
-                inputEllipsoids[j+1] = temp;
-            }
-        }
-    }
     // render each ellipsoid
     var ellipsoid, instanceTransform = mat4.create(); // the current ellipsoid and material
     
@@ -860,11 +864,13 @@ function renderModels() {
             //opaque
             gl.disable(gl.BLEND);
             gl.depthMask(true);
+            //gl.enable(gl.DEPTH_TEST);
         }
         else {
             //transparency
             gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
             gl.enable(gl.BLEND);
+           // gl.disable(gl.DEPTH_TEST);
             gl.depthMask(false);
         }
         console.log(inputEllipsoids[whichEllipsoid]);
